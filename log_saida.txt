@@ -1,0 +1,1 @@
+{"erro": "❌ Conjunto inválido: não contém 15 números válidos."}

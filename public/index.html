@@ -2786,7 +2786,162 @@ async function sorteioBitcoin() {
     );
   }
 
-  function calcularIPE(jogo, soma, pares, moldura, filtrados) {
+  async function sorteioBitcoin() {
+  const entradaTopo = document.querySelectorAll('#entradaTopo input');
+  const resultado = document.getElementById("resultadoBitcoin");
+
+  resultado.innerHTML = "";
+  resultado.style.display = "flex";
+  resultado.style.flexDirection = "column";
+  resultado.style.alignItems = "center";
+  resultado.style.padding = "20px";
+  resultado.style.boxSizing = "border-box";
+
+  // Verifica se existem até 20 inputs
+  if (!entradaTopo || entradaTopo.length < 15 || entradaTopo.length > 20 || !resultado) {
+    resultado.innerHTML = "<p style='color:red; font-weight:bold;'>⚠️ Preencha entre 15 e 20 dezenas válidas no topo antes de sortear.</p>";
+    return;
+  }
+
+  // Captura os números digitados
+  const numerosOriginais = Array.from(entradaTopo)
+    .map(input => parseInt(input.value))
+    .filter((val, idx, arr) => !isNaN(val) && val >= 1 && val <= 25 && arr.indexOf(val) === idx);
+
+  if (numerosOriginais.length < 15 || numerosOriginais.length > 20) {
+    resultado.innerHTML = "<p style='color:red; font-weight:bold;'>⚠️ Os números devem ser únicos e entre 1 e 25 (mínimo 15, máximo 20).</p>";
+    return;
+  }
+
+  // Quantos jogos gerar (substituí prompt por input mais amigável)
+  let qtdJogos = parseInt(document.getElementById("qtdJogosInput")?.value || "9", 10);
+  if (isNaN(qtdJogos) || qtdJogos < 1 || qtdJogos > 100) {
+    alert("Valor inválido! Será usado o padrão de 9 jogos.");
+    qtdJogos = 9;
+  }
+
+  const universo = Array.from({ length: 25 }, (_, i) => i + 1);
+
+  // 🔹 Carregamento do JSON local (corrigido para Vercel)
+  let jogosAnteriores = {};
+  try {
+    const response = await fetch("/lotofacil_combinacoes_convertido.json", { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const texto = await response.text();
+    jogosAnteriores = JSON.parse(texto);
+  } catch (err) {
+    console.error("Erro ao carregar JSON local:", err);
+    resultado.innerHTML = "<p style='color:red; font-weight:bold;'>❌ Falha ao carregar o JSON local.</p>";
+    return;
+  }
+
+  // Normalizador universal
+  function normalizarJogo(jogo) {
+    const dezenasBrutas = Array.isArray(jogo)
+      ? jogo
+      : Array.isArray(jogo?.dezenas)
+        ? jogo.dezenas
+        : null;
+
+    if (!Array.isArray(dezenasBrutas)) return [];
+
+    const nums = dezenasBrutas
+      .map(v => {
+        if (v === null || v === undefined) return null;
+        const str = String(v).trim().replace(",", ".");
+        const num = Math.round(parseFloat(str));
+        if (!Number.isFinite(num)) return null;
+        return (num >= 1 && num <= 25) ? num : null;
+      })
+      .filter(n => n !== null);
+
+    return Array.from(new Set(nums)).sort((a, b) => a - b);
+  }
+
+  const contagem = {};
+  const trioContador = {};
+  for (let i = 1; i <= 25; i++) contagem[i] = 0;
+
+  Object.values(jogosAnteriores).forEach(item => {
+    const dezenas = normalizarJogo(item);
+    if (dezenas.length) {
+      dezenas.forEach(num => {
+        if (contagem[num] !== undefined) contagem[num]++;
+      });
+      for (let i = 0; i < dezenas.length - 2; i++) {
+        const trio = dezenas.slice(i, i + 3).sort((a, b) => a - b).join("-");
+        trioContador[trio] = (trioContador[trio] || 0) + 1;
+      }
+    }
+  });
+
+  const melhores13 = Object.entries(contagem)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 13)
+    .map(([num]) => parseInt(num));
+
+  const molduraSet = new Set([1,2,3,4,5,6,10,11,15,16,20,21,25]);
+
+  function calcularEntropia(jogo) {
+    const grupos = {
+      A: jogo.filter(n => n <= 5).length,
+      B: jogo.filter(n => n >= 6 && n <= 10).length,
+      C: jogo.filter(n => n >= 11 && n <= 15).length,
+      D: jogo.filter(n => n >= 16 && n <= 20).length,
+      E: jogo.filter(n => n >= 21).length,
+    };
+    return Object.values(grupos).reduce((acc, qtd) => {
+      if (qtd > 0) {
+        const p = qtd / 15;
+        acc -= p * Math.log2(p);
+      }
+      return acc;
+    }, 0);
+  }
+
+  function validarPeneiras(jogo) {
+    const soma = jogo.reduce((acc, n) => acc + n, 0);
+    const pares = jogo.filter(n => n % 2 === 0).length;
+    const moldura = jogo.filter(n => molduraSet.has(n)).length;
+    const repetidas = jogo.filter(n => numerosOriginais.includes(n)).length;
+    const entropia = calcularEntropia(jogo);
+
+    let sequencia = 1;
+    for (let i = 1; i < jogo.length; i++) {
+      if (jogo[i] === jogo[i - 1] + 1) {
+        sequencia++;
+        if (sequencia > 3) return false;
+      } else {
+        sequencia = 1;
+      }
+    }
+
+    const linhas = [0,0,0,0,0];
+    const colunas = [0,0,0,0,0];
+    jogo.forEach(n => {
+      linhas[Math.floor((n - 1) / 5)]++;
+      colunas[(n - 1) % 5]++;
+    });
+    if (linhas.some(l => l < 2 || l > 4)) return false;
+    if (colunas.some(c => c < 2 || c > 4)) return false;
+
+    for (let i = 0; i < jogo.length - 2; i++) {
+      const trio = jogo.slice(i, i + 3).sort((a, b) => a - b).join("-");
+      if (trioContador[trio] && trioContador[trio] > 8) return false;
+    }
+
+    const espelho = jogo.every(n => numerosOriginais.includes(26 - n));
+    if (espelho) return false;
+
+    return (
+      soma >= 170 && soma <= 230 &&
+      pares >= 6 && pares <= 9 &&
+      moldura >= 6 && moldura <= 9 &&
+      repetidas >= 5 && repetidas <= 9 &&
+      entropia >= 1.8 && entropia <= 2.3
+    );
+  }
+    function calcularIPE(jogo, soma, pares, moldura, filtrados) {
     let pontos = 0;
     if (soma >= 180 && soma <= 210) pontos++;
     if (pares >= 6 && pares <= 9) pontos++;
@@ -2807,12 +2962,12 @@ async function sorteioBitcoin() {
   }
 
   const jogosComIPE = [];
-  
-    for (let j = 1; j <= qtdJogos; j++) {
+
+  for (let j = 1; j <= qtdJogos; j++) {
     let tentativa = 0;
     let jogoFinal = [];
 
-    while (tentativa < 1000) {
+    while (tentativa < 500) { // 🔧 reduzi de 1000 para 500 para evitar travar em celulares
       const reaproveitados = [];
       while (reaproveitados.length < 9) {
         const n = numerosOriginais[Math.floor(Math.random() * numerosOriginais.length)];
@@ -2926,9 +3081,18 @@ async function sorteioBitcoin() {
     </p>
   `;
   resultado.appendChild(inspiracao);
-
-
 }
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
 
 async function gerarJogosPromissores() {
   let qtd = prompt("🎯 Quantos jogos deseja gerar? (1 a 15)");

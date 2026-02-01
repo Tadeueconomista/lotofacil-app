@@ -1019,7 +1019,7 @@ function montarJogosLotofacil() {
 	
 
 
-// Usa somente o JSON local servido pelo Apache/XAMPP
+// ✅ Compatível com PC (XAMPP) e Vercel
 async function jogosInversosALogica() {
   try {
     const qtd = parseInt(prompt("Quantos jogos deseja gerar? (1 a 100)", ""));
@@ -1040,10 +1040,10 @@ async function jogosInversosALogica() {
       alignItems: "center"
     });
 
-    // Caminho local do JSON (ajuste se necessário)
-    const urlLocal = "/SorteioApp/lotofacil_combinacoes_convertido.json";
+    // ✅ Caminho universal: funciona no Vercel e no PC
+    // Se o arquivo estiver em public/lotofacil_combinacoes_convertido.json
+    const urlLocal = "/lotofacil_combinacoes_convertido.json";
 
-    // Faz o fetch e valida a resposta como texto antes de parsear
     const res = await fetch(urlLocal, { cache: "no-store" });
     if (!res.ok) {
       throw new Error(`HTTP ${res.status} ao carregar ${urlLocal}`);
@@ -1062,7 +1062,7 @@ async function jogosInversosALogica() {
       throw new Error("JSON local vazio ou formato não reconhecido");
     }
 
-    // Normalizador universal: aceita array direto, objeto com dezenas, strings, decimais
+    // 🔧 Normalizador universal
     function normalizarJogo(jogo) {
       const dezenasBrutas = Array.isArray(jogo)
         ? jogo
@@ -1082,25 +1082,21 @@ async function jogosInversosALogica() {
         })
         .filter(n => n !== null);
 
-      // remove duplicados e ordena
       return Array.from(new Set(nums)).sort((a, b) => a - b);
     }
 
-    // Converte objeto de concursos em lista de jogos normalizados
     const jogosNormalizados = Object.values(dados)
       .map(normalizarJogo)
-      .filter(arr => arr.length >= 1); // mantém jogos com alguma dezena válida
+      .filter(arr => arr.length >= 1);
 
     if (!jogosNormalizados.length) {
       throw new Error("Nenhum jogo válido encontrado no JSON local");
     }
 
-    // Monta índice de jogos salvos como string ordenada (para checagem de ineditismo)
     const jogosSalvos = jogosNormalizados
       .filter(arr => arr.length === 15)
       .map(arr => arr.join(","));
 
-    // Contagem de frequência
     const contagem = {};
     for (let i = 1; i <= 25; i++) contagem[i] = 0;
     jogosNormalizados.forEach(dezenas => {
@@ -1138,7 +1134,7 @@ async function jogosInversosALogica() {
       return span;
     };
 
-    // Geração dos jogos "inversos à lógica"
+    // 🔧 Geração dos jogos
     for (let j = 0; j < qtd; j++) {
       const titulo = document.createElement("div");
       titulo.textContent = `🎯 Jogo ${j + 1}:`;
@@ -1152,24 +1148,20 @@ async function jogosInversosALogica() {
 
       const jogo = [];
 
-      // bloco sequência de 5
       const inicio = Math.floor(Math.random() * 16) + 1;
       for (let i = 0; i < 5; i++) {
         const n = inicio + i;
         if (n <= 25 && !jogo.includes(n)) jogo.push(n);
       }
 
-      // extremos
       [1, 25].forEach(n => { if (!jogo.includes(n)) jogo.push(n); });
 
-      // ímpares até ter 13
       let candidato = 1;
       while (jogo.length < 13) {
         if (candidato % 2 !== 0 && !jogo.includes(candidato)) jogo.push(candidato);
         candidato++;
       }
 
-      // raras
       const raras = [11, 18, 22, 13, 2];
       raras.forEach(r => { if (jogo.length < 15 && !jogo.includes(r)) jogo.push(r); });
 

@@ -2540,7 +2540,7 @@ function renderizarConcursoLotofacil(dados) {
   container.appendChild(arrayDiv);
 }
 
-// ✅ Importa o último concurso direto da API da Caixa (funciona em produção Netlify)
+// ✅ Importa o último concurso direto da API da Caixa
 async function importarUltimos() {
   const infoConcurso = document.getElementById("infoConcurso");
   const inputsTopo = document.querySelectorAll('#entradaTopo input');
@@ -2560,7 +2560,7 @@ async function importarUltimos() {
     let dezenasRaw = dadosApi.dezenas || dadosApi.listaDezenas || dadosApi.dezenasSorteadasOrdemSorteio || [];
 
     // Normaliza dezenas
-    if (typeof dezenasRaw === "string") {
+    if (!Array.isArray(dezenasRaw)) {
       try {
         dezenasRaw = JSON.parse(dezenasRaw);
       } catch {
@@ -2568,19 +2568,16 @@ async function importarUltimos() {
       }
     }
 
-    const dezenas = Array.isArray(dezenasRaw)
-      ? dezenasRaw
-          .map(n => Number(n))
-          .filter(n => Number.isInteger(n) && n >= 1 && n <= 25)
-          .sort((a, b) => a - b)
-          .slice(0, 15)
-      : [];
+    const dezenas = dezenasRaw
+      .map(n => Number(n))
+      .filter(n => Number.isInteger(n) && n >= 1 && n <= 25)
+      .sort((a, b) => a - b)
+      .slice(0, 15);
 
     // ✅ validação final
-    if (!dezenas || dezenas.length !== 15 || !numero) {
+    if (dezenas.length !== 15 || !numero) {
       infoConcurso.textContent = "❌ Último concurso não encontrado ou incompleto.";
       infoConcurso.style.color = "red";
-      alert("⚠️ Não foi possível carregar o último concurso.");
       return;
     }
 
@@ -2606,17 +2603,15 @@ async function importarUltimos() {
     });
 
     // ✅ exibe info do concurso
-    infoConcurso.textContent = `Concurso nº ${numero}`;
+    infoConcurso.textContent = `Concurso nº ${numero} - ${formatadas.join(" - ")}`;
     Object.assign(infoConcurso.style, {
       color: "#00ffd5",
-      fontSize: "24px",
+      fontSize: "22px",
       borderBottom: "2px solid #00ffd5"
     });
 
     // ✅ guarda em variável global
     window.jogoFixo = dezenas;
-
-    alert(`✅ Último concurso ${numero} carregado:\n${formatadas.join(" - ")}`);
 
   } catch (e) {
     console.error("❌ Erro ao carregar dados da API da Caixa:", e);

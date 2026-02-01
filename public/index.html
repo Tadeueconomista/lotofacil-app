@@ -2296,7 +2296,7 @@ async function prepararPromissor() {
   
  
 async function buscarConcursoEspecifico() {
-  const numero = prompt("Digite o número do concurso que deseja buscar:");
+  const numero = document.getElementById("concursoInput")?.value || prompt("Digite o número do concurso:");
   const concursoInt = parseInt(numero);
   if (!numero || isNaN(concursoInt) || concursoInt < 1) {
     return alert("⚠️ Número de concurso inválido.");
@@ -2312,7 +2312,7 @@ async function buscarConcursoEspecifico() {
   let dezenas = null;
 
   try {
-    // Tenta API da Caixa (pode falhar para histórico específico)
+    // 🌐 Tenta API da Caixa
     const resApi = await fetch(`https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil/${concursoStr}`, {
       headers: { Accept: "application/json" },
       cache: "no-store"
@@ -2326,15 +2326,27 @@ async function buscarConcursoEspecifico() {
     console.warn("❌ Erro ao buscar concurso na API da Caixa:", e);
   }
 
-  // Validação e fallback
+  // 🔹 Fallback para JSON local se API falhar
+  if (!Array.isArray(dezenas) || dezenas.length !== 15) {
+    try {
+      const resLocal = await fetch("/lotofacil_combinacoes_convertido.json", { cache: "no-store" });
+      const dadosLocal = await resLocal.json();
+      if (dadosLocal[concursoStr]) {
+        dezenas = dadosLocal[concursoStr].dezenas || [];
+      }
+    } catch (e) {
+      console.error("❌ Erro ao carregar JSON local:", e);
+    }
+  }
+
+  // Validação final
   const dezenasNumeros = Array.isArray(dezenas)
     ? dezenas.map(n => parseInt(n)).filter(n => !isNaN(n) && n >= 1 && n <= 25)
     : [];
 
   if (dezenasNumeros.length !== 15) {
-    infoConcurso.textContent = "❌ Concurso não encontrado.";
+    infoConcurso.textContent = `❌ Concurso ${concursoStr} não encontrado.`;
     infoConcurso.style.color = "red";
-    alert(`❌ Concurso ${concursoStr} não encontrado na API. Tente importar o último concurso.`);
     return;
   }
 
@@ -2359,16 +2371,16 @@ async function buscarConcursoEspecifico() {
     }
   });
 
-  infoConcurso.textContent = `Concurso nº: ${concursoStr}`;
+  infoConcurso.textContent = `Concurso nº: ${concursoStr} - ${formatadas.join(" - ")}`;
   infoConcurso.style.color = "#00ffd5";
-  infoConcurso.style.fontSize = "24px";
+  infoConcurso.style.fontSize = "22px";
   infoConcurso.style.borderBottom = "2px solid #00ffd5";
 
   window.jogoFixo = ordenadas;
   registrarConcursoNaMemoria(concursoStr, ordenadas);
-
-  alert(`✅ Concurso ${concursoStr} carregado:\n${formatadas.join(" - ")}`);
 }
+
+
   // ✅ Cronômetro retrô + barra sincronizada
   let cronometroInterval;
   let segundosDecorridos = 0;

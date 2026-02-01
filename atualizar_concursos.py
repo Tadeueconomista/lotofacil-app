@@ -1,94 +1,73 @@
 import requests
 import json
+import sys
+import io
 import os
-import time
-import re
+
+# 🔹 Força saída UTF-8 (para emojis e acentos no Windows)
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+HEADERS = {
+    "Accept": "application/json, text/plain, */*",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+}
 
 ARQUIVO_JSON = "lotofacil_combinacoes_convertido.json"
 
-# Carrega JSON existente ou inicia vazio
-try:
-    if os.path.exists(ARQUIVO_JSON):
-        with open(ARQUIVO_JSON, "r", encoding="utf-8") as f:
-            content = f.read().strip()
-            concursos = json.loads(content) if content else {}
-    else:
-        concursos = {}
-except Exception as e:
-    print(f"⚠️ Erro ao carregar JSON: {e}")
-    concursos = {}
-
-# Corrige e valida dezenas
-def corrigir_dezenas(dezenas_raw):
-    dezenas = []
-    for item in dezenas_raw:
-        item = re.sub(r"[^\d]", "", str(item))
-        if item.isdigit():
-            n = int(item)
-            if 1 <= n <= 25 and n not in dezenas:
-                dezenas.append(n)
-    return dezenas
-
-def concurso_valido(dezenas):
-    return (
-        isinstance(dezenas, list)
-        and len(dezenas) == 15
-        and len(set(dezenas)) == 15
-        and all(isinstance(d, int) and 1 <= d <= 25 for d in dezenas)
-    )
-
-# Busca o último concurso disponível
-def obter_ultimo_concurso():
+def get_json(url: str):
     try:
-        res = requests.get("https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil", timeout=10)
-        dados = res.json()
-        if "numero" in dados:
-            return int(dados["numero"])
-        else:
-            print("⚠️ Estrutura inesperada na resposta da API da Caixa.")
-            return max(map(int, concursos.keys())) if concursos else 1
-    except Exception as e:
-        print(f"❌ Erro ao obter último concurso: {e}")
-        return max(map(int, concursos.keys())) if concursos else 1
-
-# Busca resultado de um concurso específico
-def buscar_concurso_caixa(numero):
-    url = f"https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil/{numero}"
-    try:
-        res = requests.get(url, timeout=10)
-        dados = res.json()
-        dezenas_raw = dados.get("listaDezenas", [])
-        dezenas = corrigir_dezenas(dezenas_raw)
-        if concurso_valido(dezenas):
-            return dezenas
-    except Exception as e:
-        print(f"❌ Erro ao buscar concurso {numero}: {e}")
+        res = requests.get(url, headers=HEADERS, timeout=5)
+        if res.ok:
+            return res.json()
+    except Exception:
+        return None
     return None
 
-# Busca todos os concursos
-ULTIMO_CONCURSO = obter_ultimo_concurso()
+# 🔹 Carrega arquivo existente
+if os.path.exists(ARQUIVO_JSON):
+    with open(ARQUIVO_JSON, "r", encoding="utf-8") as f:
+        data_json = json.load(f)
+else:
+    data_json = {}
 
-for i in range(1, ULTIMO_CONCURSO + 1):
-    concurso = str(i)
-    if concurso in concursos:
-        print(f"✅ Concurso {concurso} já salvo.")
-        continue
+# 🔹 Busca último concurso disponível na API
+dados = get_json("https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil")
 
-    print(f"🔍 Buscando concurso {concurso}...")
+if dados and "listaDezenas" in dados:
+    ultimo_disponivel = dados.get("numero")
+    data_concurso = dados.get("dataApuracao")
 
-    dezenas = buscar_concurso_caixa(concurso)
-    print(f"🔎 Dezenas lidas para {concurso}: {dezenas}")
+    # 🔹 Busca todos os concursos desde o 1 até o último disponível
+    for n in range(1, ultimo_disponivel + 1):
+        if str(n) not in data_json:  # só baixa se ainda não existir
+            url = f"https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil/{n}"
+            dados_concurso = get_json(url)
+            if dados_concurso and "listaDezenas" in dados_concurso:
+                try:
+                    dezenas = [int(x) for x in dados_concurso["listaDezenas"]]
+                except Exception:
+                    dezenas = dados_concurso["listaDezenas"]
+                data_json[str(n)] = dezenas
 
-    if concurso_valido(dezenas):
-        concursos[concurso] = dezenas
-        print(f"💾 Concurso {concurso} salvo.")
-    else:
-        print(f"⚠️ Concurso {concurso} inválido ou incompleto.")
+    # 🔹 Salva de volta
+    with open(ARQUIVO_JSON, "w", encoding="utf-8") as f:
+        json.dump(data_json, f, ensure_ascii=False, indent=2)
 
-    time.sleep(0.3)
+    # 🔹 Monta saída JSON para o PHP/JS
+    saida = {
+        "sucesso": True,
+        "mensagem": f"✅ Concursos atualizados até {ultimo_disponivel} ({data_concurso})",
+        "ultimoSalvo": ultimo_disponivel,
+        "dataConcurso": data_concurso,
+        "dezenas": data_json[str(ultimo_disponivel)],
+        "totalConcursos": len([k for k in data_json.keys() if k.isdigit()])
+    }
+    print(json.dumps(saida, ensure_ascii=False))
 
-# Salva JSON final
-with open(ARQUIVO_JSON, "w", encoding="utf-8") as f:
-    json.dump(concursos, f, ensure_ascii=False, indent=4)
-
-print("✅ Atualização completa.")
+else:
+    saida = {
+        "sucesso": False,
+        "mensagem": "❌ Não foi possível atualizar",
+        "dezenas": []
+    }
+    print(json.dumps(saida, ensure_ascii=False))

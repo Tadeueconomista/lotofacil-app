@@ -2793,7 +2793,7 @@ async function sorteioBitcoin() {
     );
   }
 
- async function sorteioBitcoin() {
+  async function sorteioBitcoin() {
   const entradaTopo = document.querySelectorAll('#entradaTopo input');
   const resultado = document.getElementById("resultadoBitcoin");
 
@@ -2820,8 +2820,8 @@ async function sorteioBitcoin() {
     return;
   }
 
-  // Quantos jogos gerar
-  let qtdJogos = parseInt(prompt("Quantos jogos deseja gerar? (1 a 100)"), 10);
+  // Quantos jogos gerar (substituí prompt por input mais amigável)
+  let qtdJogos = parseInt(document.getElementById("qtdJogosInput")?.value || "9", 10);
   if (isNaN(qtdJogos) || qtdJogos < 1 || qtdJogos > 100) {
     alert("Valor inválido! Será usado o padrão de 9 jogos.");
     qtdJogos = 9;
@@ -2829,18 +2829,13 @@ async function sorteioBitcoin() {
 
   const universo = Array.from({ length: 25 }, (_, i) => i + 1);
 
-  // 🔹 Carregamento apenas do JSON local
+  // 🔹 Carregamento do JSON local (corrigido para Vercel)
   let jogosAnteriores = {};
   try {
-    const response = await fetch("/SorteioApp/lotofacil_combinacoes_convertido.json", { cache: "no-store" });
+    const response = await fetch("/lotofacil_combinacoes_convertido.json", { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const texto = await response.text();
-    try {
-      jogosAnteriores = JSON.parse(texto);
-    } catch (e) {
-      console.error("Resposta não era JSON:", texto.slice(0, 300));
-      throw new Error("Formato inválido do JSON local");
-    }
+    jogosAnteriores = JSON.parse(texto);
   } catch (err) {
     console.error("Erro ao carregar JSON local:", err);
     resultado.innerHTML = "<p style='color:red; font-weight:bold;'>❌ Falha ao carregar o JSON local.</p>";
@@ -2953,8 +2948,7 @@ async function sorteioBitcoin() {
       entropia >= 1.8 && entropia <= 2.3
     );
   }
-
-  function calcularIPE(jogo, soma, pares, moldura, filtrados) {
+    function calcularIPE(jogo, soma, pares, moldura, filtrados) {
     let pontos = 0;
     if (soma >= 180 && soma <= 210) pontos++;
     if (pares >= 6 && pares <= 9) pontos++;
@@ -2975,12 +2969,12 @@ async function sorteioBitcoin() {
   }
 
   const jogosComIPE = [];
-  
-    for (let j = 1; j <= qtdJogos; j++) {
+
+  for (let j = 1; j <= qtdJogos; j++) {
     let tentativa = 0;
     let jogoFinal = [];
 
-    while (tentativa < 1000) {
+    while (tentativa < 500) { // 🔧 reduzi de 1000 para 500 para evitar travar em celulares
       const reaproveitados = [];
       while (reaproveitados.length < 9) {
         const n = numerosOriginais[Math.floor(Math.random() * numerosOriginais.length)];
@@ -3094,10 +3088,8 @@ async function sorteioBitcoin() {
     </p>
   `;
   resultado.appendChild(inspiracao);
-
-
 }
-
+  
   
   
   
